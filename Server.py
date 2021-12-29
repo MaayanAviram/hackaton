@@ -1,5 +1,6 @@
 from socket import *
 import time
+import random
 from threading import *
 import struct
 import colorama
@@ -24,7 +25,7 @@ class Server:
         message_to_send = struct.pack('Ibh', 0xabcddcba, 0x2, 2095)
         send_until = time.time() + 10
         udp_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
-        udp_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        udp_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         udp_socket.bind(('', 2095))
         while time.time() <= send_until:
             udp_socket.sendto(message_to_send, ('<broadcast>', 13117))
@@ -65,7 +66,12 @@ class Server:
         from the clients and count them for their group during the game'''
         respond = f'{colorama.Fore.LIGHTMAGENTA_EX}Welcome to Quick Maths.\n'
         respond += "Player 1: " + str(self.clients[0][0]) + "\n Player 2: " + str(self.clients[1][0])
-        respond += "\n==\nPlease answer the following question as fast as you can:\nHow much is 2+3" 
+        respond += "\n==\nPlease answer the following question as fast as you can:\nHow much is "
+        numbers = [i for i in range(10)]
+        rand_nums = random.sample(numbers, 2)        
+        question = str(rand_nums[0]) + "+" + str(rand_nums[1])
+        respond += question
+        ans = rand_nums[0]  + rand_nums[1]
         try:
             client.send(str.encode(respond))
         except:
@@ -74,9 +80,9 @@ class Server:
         start = time.time()
         while time.time() < start + 10:
             try:
-                msg = client.recv(1024).decode(encoding='utf-8') #the answer
-                if msg is not None: #check this
-                    if msg == '5':
+                msg = client.recv(1024).decode(encoding='utf-8')
+                if msg is not None: 
+                    if msg == str(ans):
                         if client == self.clients[0][1]:
                             self.is_1_correct = True
                             self.time_1_answered = time.time() - start
@@ -84,12 +90,11 @@ class Server:
                             self.is_2_correct = True
                             self.time_2_answered = time.time() - start
                         return
-                    else: #mistake
+                    else:
                         if client == self.clients[0][1]:
                             self.time_1_answered = time.time() - start
                         elif client == self.clients[1][1]:
                             self.time_2_answered = time.time() - start
-                        return
             except:
                 return
 
@@ -101,7 +106,8 @@ class Server:
         tcp_socket = socket(AF_INET, SOCK_STREAM)
         tcp_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         tcp_socket.bind(('', dest_port))
-        tcp_socket.settimeout(1) 
+        tcp_socket.listen(100)
+        tcp_socket.settimeout(1)  
         while not flag:
             t1 = Timer(0.1, self.spread_the_message)
             t2 = Timer(0.1, self.accept_clients, args=(tcp_socket,))
@@ -114,7 +120,8 @@ class Server:
                 tcp_socket.close()
                 tcp_socket = socket(AF_INET, SOCK_STREAM)
                 tcp_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-                tcp_socket.bind(('', dest_port))
+                tcp_socket.bind((self.my_ip, dest_port))
+                tcp_socket.listen(100)
                 tcp_socket.settimeout(1)
         T1 = Timer(0.1, self.communicate_with_client, args=(self.clients[0][1]))
         T2 = Timer(0.1, self.communicate_with_client, args=(self.clients[1][1]))
